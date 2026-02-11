@@ -47,33 +47,44 @@ client.once("ready", async () => {
   await deployCommands();
 });
 
-// ---- JOIN: WELCOME + AUTO ROLE ----
+// ---- JOIN: WELCOME + AUTO ROLE (DEDUPED) ----
 client.on("guildMemberAdd", async (member) => {
-  // Don't welcome bots
-  if (member.user.bot) return;
-
-  // Prevent double-welcomes caused by reconnects/redeploys:
-  // Only welcome if the join happened very recently.
-  const now = Date.now();
-  const joined = member.joinedTimestamp;
-  if (!joined || now - joined > 10_000) return; // 10 seconds
-
-  // Welcome message
-  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-  if (channel) {
-    await channel.send(`Welcome to **Georgia Roleplay Community**, ${member}!`);
-  }
-
-  // Auto role
-  if (!AUTO_ROLE_ID) return;
-
-  const role = member.guild.roles.cache.get(AUTO_ROLE_ID);
-  if (!role) return;
-
   try {
+    // Don't welcome bots
+    if (member.user.bot) return;
+
+    const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+    if (!channel || !channel.isTextBased()) return;
+
+    const welcomeText = `Welcome to **Georgia Roleplay Community**, <@${member.id}>!`;
+
+    // ✅ DEDUPE: check recent messages so we don't double-welcome
+    // (Works even if two instances are running)
+    const recent = await channel.messages.fetch({ limit: 10 });
+    const alreadyWelcomed = recent.some((m) => {
+      const isBot = m.author?.id === client.user.id;
+      const recentEnough = Date.now() - m.createdTimestamp < 60_000; // 60 seconds
+      const sameUser = m.content.includes(`<@${member.id}>`);
+      const sameWelcome = m.content.includes("Welcome to **Georgia Roleplay Community**");
+      return isBot && recentEnough && sameUser && sameWelcome;
+    });
+
+    if (!alreadyWelcomed) {
+      await channel.send(welcomeText);
+    }
+
+    // Auto role
+    if (!AUTO_ROLE_ID) return;
+
+    const role = member.guild.roles.cache.get(AUTO_ROLE_ID);
+    if (!role) return;
+
+    // Optional: prevent re-adding if they somehow already have it
+    if (member.roles.cache.has(role.id)) return;
+
     await member.roles.add(role);
   } catch (err) {
-    console.error("Failed to auto-assign role:", err);
+    console.error("guildMemberAdd error:", err);
   }
 });
 
@@ -90,7 +101,7 @@ client.on("interactionCreate", async (interaction) => {
     const devId = "698301697134559308";
     await interaction.reply({
       content: `This bot is developed by <@${devId}>`,
-      allowedMentions: { users: [] }, // shows mention without pinging you
+      allowedMentions: { users: [] }, // show mention without pinging you
     });
     return;
   }
