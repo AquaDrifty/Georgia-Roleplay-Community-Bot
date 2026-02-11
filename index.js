@@ -3,14 +3,18 @@ import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from "di
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
+const WELCOME_CHANNEL_ID = process.env.WELCOME_CHANNEL_ID;
 
-if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
+if (!TOKEN || !CLIENT_ID || !GUILD_ID || !WELCOME_CHANNEL_ID) {
   console.error("Missing required environment variables.");
   process.exit(1);
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
 });
 
 // ---- SLASH COMMANDS ----
@@ -47,6 +51,14 @@ client.once("ready", async () => {
   await deployCommands();
 });
 
+// ---- WELCOME MESSAGE ----
+client.on("guildMemberAdd", async (member) => {
+  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+  if (!channel) return;
+
+  channel.send(`Welcome to **Georgia Roleplay Community**, ${member}!`);
+});
+
 // ---- COMMAND HANDLER ----
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
@@ -57,10 +69,10 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   if (interaction.commandName === "credits") {
-    const devId = "698301697134559308"; // Your Discord ID
+    const devId = "698301697134559308";
     await interaction.reply({
       content: `This bot is developed by <@${devId}>`,
-      allowedMentions: { users: [] } // Prevents ping
+      allowedMentions: { users: [] }
     });
     return;
   }
