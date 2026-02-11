@@ -17,9 +17,10 @@ const SUPPORT_DAILY_MESSAGE =
   process.env.SUPPORT_DAILY_MESSAGE ??
   `**Georgia Roleplay Community Help & Support**\n\nThis channel resets every night at 12:00am to keep things clean.\n\n• Be respectful\n• Provide clear details\n• Stay on topic\n• Mention staff only if necessary\n• Be patient if they dont answer right away`;
 
-// RULES (permanent post, no commands)
-const RULES_CHANNEL_ID = process.env.RULES_CHANNEL_ID; // e.g. 1469558618897780860
-const RULES_MESSAGE = process.env.RULES_MESSAGE; // paste full rules text in Railway
+// RULES (2 pinned posts, updated via Railway)
+const RULES_CHANNEL_ID = process.env.RULES_CHANNEL_ID;
+const RULES_MESSAGE_1 = process.env.RULES_MESSAGE_1;
+const RULES_MESSAGE_2 = process.env.RULES_MESSAGE_2;
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID || !WELCOME_CHANNEL_ID) {
   console.error("Missing required environment variables.");
@@ -96,48 +97,40 @@ async function resetSupportChannel() {
   console.log("✅ Posted daily support message.");
 }
 
-// ---------------- RULES (PERMANENT PINNED POST) ----------------
-async function getRulesChannel() {
-  if (!RULES_CHANNEL_ID) return null;
-  const ch = await client.channels.fetch(RULES_CHANNEL_ID).catch(() => null);
-  if (!ch || !ch.isTextBased()) return null;
-  return ch;
-}
+// ---------------- RULES (2 PERMANENT PINNED POSTS) ----------------
+async function ensureRulesPosts() {
+  if (!RULES_CHANNEL_ID) return;
 
-async function findPinnedBotMessage(channel) {
+  const channel = await client.channels.fetch(RULES_CHANNEL_ID).catch(() => null);
+  if (!channel || !channel.isTextBased()) return;
+
+  const pages = [RULES_MESSAGE_1, RULES_MESSAGE_2].filter(Boolean);
+  if (pages.length === 0) return;
+
   const pins = await channel.messages.fetchPinned().catch(() => null);
-  if (!pins) return null;
-  return pins.find((m) => m.author?.id === client.user.id) ?? null;
-}
+  const pinnedBotMsgs = pins
+    ? Array.from(pins.values()).filter((m) => m.author?.id === client.user.id)
+    : [];
 
-async function ensureRulesPost() {
-  // If you haven't set these in Railway yet, do nothing.
-  if (!RULES_CHANNEL_ID || !RULES_MESSAGE) return;
+  for (let i = 0; i < pages.length; i++) {
+    const content = pages[i];
+    let msg = pinnedBotMsgs[i];
 
-  const channel = await getRulesChannel();
-  if (!channel) return;
-
-  let msg = await findPinnedBotMessage(channel);
-
-  // If no pinned bot message exists, create + pin it
-  if (!msg) {
-    msg = await channel.send(RULES_MESSAGE);
-    try {
-      await msg.pin();
-    } catch (e) {
-      console.error("Could not pin rules message (need Manage Messages):", e);
+    if (!msg) {
+      msg = await channel.send(content);
+      try {
+        await msg.pin();
+      } catch (e) {
+        console.error("Could not pin rules message (need Manage Messages):", e);
+      }
+    } else {
+      if (msg.content !== content) {
+        await msg.edit(content);
+      }
     }
-    console.log("✅ Rules message created + pinned.");
-    return;
   }
 
-  // If pinned exists, update it only if changed
-  if (msg.content !== RULES_MESSAGE) {
-    await msg.edit(RULES_MESSAGE);
-    console.log("✅ Rules message updated (edited pinned message).");
-  } else {
-    console.log("✅ Rules message already up to date.");
-  }
+  console.log(`✅ Rules posts ensured: ${pages.length} page(s).`);
 }
 
 // ---------------- READY ----------------
@@ -147,10 +140,10 @@ client.once("ready", async () => {
 
   await deployCommands();
 
-  // Make sure rules post exists + pinned
-  await ensureRulesPost();
+  // Ensure rules posts exist + pinned (updates if Railway text changed)
+  await ensureRulesPosts();
 
-  // Every day at 12:00 AM EST/EDT (America/New_York handles DST)
+  // Reset support channel every day at 12:00 AM America/New_York
   cron.schedule(
     "0 0 * * *",
     async () => {
