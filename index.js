@@ -4,8 +4,7 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 const WELCOME_CHANNEL_ID = process.env.WELCOME_CHANNEL_ID;
-
-const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID; // <-- NEW
+const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID;
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID || !WELCOME_CHANNEL_ID) {
   console.error("Missing required environment variables.");
@@ -33,7 +32,9 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 async function deployCommands() {
   try {
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
+      body: commands,
+    });
     console.log("✅ Slash commands registered.");
   } catch (error) {
     console.error("Error registering commands:", error);
@@ -48,9 +49,20 @@ client.once("ready", async () => {
 
 // ---- JOIN: WELCOME + AUTO ROLE ----
 client.on("guildMemberAdd", async (member) => {
+  // Don't welcome bots
+  if (member.user.bot) return;
+
+  // Prevent double-welcomes caused by reconnects/redeploys:
+  // Only welcome if the join happened very recently.
+  const now = Date.now();
+  const joined = member.joinedTimestamp;
+  if (!joined || now - joined > 10_000) return; // 10 seconds
+
   // Welcome message
   const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-  if (channel) channel.send(`Welcome to **Georgia Roleplay Community**, ${member}!`);
+  if (channel) {
+    await channel.send(`Welcome to **Georgia Roleplay Community**, ${member}!`);
+  }
 
   // Auto role
   if (!AUTO_ROLE_ID) return;
@@ -78,7 +90,7 @@ client.on("interactionCreate", async (interaction) => {
     const devId = "698301697134559308";
     await interaction.reply({
       content: `This bot is developed by <@${devId}>`,
-      allowedMentions: { users: [] },
+      allowedMentions: { users: [] }, // shows mention without pinging you
     });
     return;
   }
