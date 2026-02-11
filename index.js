@@ -104,28 +104,42 @@ async function ensureRulesPosts() {
   const channel = await client.channels.fetch(RULES_CHANNEL_ID).catch(() => null);
   if (!channel || !channel.isTextBased()) return;
 
-  const pages = [RULES_MESSAGE_1, RULES_MESSAGE_2].filter(Boolean);
-  if (pages.length === 0) return;
+  const page1 = RULES_MESSAGE_1;
+  const page2 = RULES_MESSAGE_2;
 
-  const pins = await channel.messages.fetchPinned().catch(() => null);
-  const pinnedBotMsgs = pins
-    ? Array.from(pins.values()).filter((m) => m.author?.id === client.user.id)
-    : [];
+  if (!page1 || !page2) return;
 
-  for (let i = 0; i < pages.length; i++) {
-    const content = pages[i];
-    let msg = pinnedBotMsgs[i];
+  let msg1 = null;
+  let msg2 = null;
 
-    if (!msg) {
-      msg = await channel.send(content);
-      try {
-        await msg.pin();
-      } catch (e) {
-        console.error("Could not pin rules message (need Manage Messages):", e);
-      }
-    } else {
-      if (msg.content !== content) {
-        await msg.edit(content);
+  // Try fetching existing saved messages
+  if (process.env.RULES_MESSAGE_1_ID) {
+    msg1 = await channel.messages.fetch(process.env.RULES_MESSAGE_1_ID).catch(() => null);
+  }
+
+  if (process.env.RULES_MESSAGE_2_ID) {
+    msg2 = await channel.messages.fetch(process.env.RULES_MESSAGE_2_ID).catch(() => null);
+  }
+
+  // Create if missing
+  if (!msg1) {
+    msg1 = await channel.send(page1);
+    try { await msg1.pin(); } catch {}
+    console.log("✅ Created Rules Page 1");
+    console.log("RULES_MESSAGE_1_ID =", msg1.id);
+  } else if (msg1.content !== page1) {
+    await msg1.edit(page1);
+  }
+
+  if (!msg2) {
+    msg2 = await channel.send(page2);
+    try { await msg2.pin(); } catch {}
+    console.log("✅ Created Rules Page 2");
+    console.log("RULES_MESSAGE_2_ID =", msg2.id);
+  } else if (msg2.content !== page2) {
+    await msg2.edit(page2);
+  }
+}
       }
     }
   }
