@@ -1,0 +1,13 @@
+{
+  "name": "georgia-roleplay-community-bot",
+  "version": "1.0.0",
+  "description": "Official Georgia Roleplay Community Discord Bot",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  }
+}
