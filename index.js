@@ -44,7 +44,7 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === "ping") {
-    await interaction.reply("🏓 Pong! Bot is online.");
+    await interaction.reply("Georgia Roleplay Community's Bot is online!");
   }
 });
 
