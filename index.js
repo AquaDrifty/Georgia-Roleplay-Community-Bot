@@ -97,7 +97,7 @@ client.once("ready", async () => {
   await deployCommands();
 
   // Run once on boot (optional)
-  // await resetSupportChannel();
+   await resetSupportChannel();
 
   // Every day at 12:00 AM EST/EDT automatically (America/New_York handles DST)
   cron.schedule(
